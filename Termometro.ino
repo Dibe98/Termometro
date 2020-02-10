@@ -1,33 +1,43 @@
+// Includo libreria LCD
 #include <LiquidCrystal.h>
+// Inizializzo l'LCD 
 LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
-int val_Adc = 0;
-float temp = 0;
-const int GREEN = 9;
-const int YELLOW = 8;
-const int RED = 7;
-const float tempOkLimit = 20.0;
-const float tempCriticLimit = 30.0;
-const float tempDanger = 38.0;
-const int piezo = 10;
-const int reset = 6;
+// Dichiaro le variabili di tipo intero
+const int sensorTemp = A0; // Sensore temperatura
+const int piezo = 10; // Piezo
+const int reset = 6; // Pin per il reser
+const int GREEN = 9; // LED Verde
+const int YELLOW = 8; // LED Giallo
+const int RED = 7; // LED Rosso
+int val_Adc = 0; // Variabile per leggere 
+const float tempOkLimit = 27.0; // Limite massimo per definire la temperatura OK
+const float tempNormalLimit = 37.0; // Limite massimo per definire la temperatura nella norma (NORMALE)
+const float tempCriticLimit = 43.5; // Limite massimo per definire la temperatura CRITICA superato questo si passa a PERICOLO
+float temp = 0; // variabile per calcolare la temperatura
 
-void(* Riavvia)(void) = 0;
+void(* Riavvia)(void) = 0; // Funzione del reset
+
+void tempOk(float); // Funzione per settare i componenti ad indicare che la temperatura è OK
+
+void tempNormal(float);  // Funzione per settare i componenti ad indicare che la temperatura è NORMALE
+
+void tempCritic(float);  // Funzione per settare i componenti ad indicare che la temperatura è CRITICA
+
+void tempDanger(float);   // Funzione per settare i componenti ad indicare che la temperatura è PERICOLOSA
+
 
 void setup()
 {
+  // ciclo per settare i pin 7,8,9 in modalità OUTPUT e livello LOW
  for(int pinNumber = RED; pinNumber <= GREEN; pinNumber++)
  {
   pinMode(pinNumber, OUTPUT);
   digitalWrite(pinNumber, LOW);
  }
 
- pinMode(reset, INPUT);
- lcd.begin(16,2);
- lcd.print("Temperatura");
- lcd.setCursor(6,1);
- lcd.print("C  ");
- //init seriale
- Serial.begin(9600);
+ pinMode(reset, INPUT); // setto il pin 6 in modalità INPUT
+ lcd.begin(16,2); // Inizializzo l' LCD
+ Serial.begin(9600); //init seriale
  //utilizzando l'istruzione analogReference
  //indico al convertitore AD che deve impiegare
  //la tensione presente sul pin AREF come
@@ -35,65 +45,34 @@ void setup()
  analogReference(EXTERNAL);
 
  // TESTO TUTTI I COMPONENTI
-  lcd.clear();
-  lcd.setCursor(0,0);
-  lcd.print("TEST COMP");
-  lcd.setCursor(6,1);
-  lcd.print("C OK");
-  digitalWrite(GREEN, HIGH);
-  digitalWrite(YELLOW, LOW);
-  digitalWrite(RED, LOW);
-  delay(500);
-  lcd.clear();
-  lcd.setCursor(0,0);
-  lcd.print("TEST COMP");
-  lcd.setCursor(6,1);
-  lcd.print("C NORM.");
-  digitalWrite(GREEN, LOW);
-  digitalWrite(YELLOW, HIGH);
-  digitalWrite(RED, LOW);
-  lcd.setCursor(0,1);
-  delay(500);
-  lcd.clear();
-  lcd.setCursor(0,0);
-  lcd.print("TEST COMP");
-  lcd.setCursor(6,1);
-  lcd.print("C CRITICO");
-  digitalWrite(GREEN, LOW);
-  digitalWrite(YELLOW, LOW);
-  digitalWrite(RED, HIGH);
-  delay(500);
-  lcd.clear();
-  lcd.setCursor(0,0);
-  lcd.print("TEST COMP");
-  lcd.setCursor(6,1);
-  lcd.print("C PERICOLO");
-  digitalWrite(GREEN, HIGH);
-  digitalWrite(YELLOW, HIGH);
-  digitalWrite(RED, HIGH);
-  lcd.setCursor(0,1);
-  tone(piezo,8200,450);
+ tempOk(tempOkLimit);
+ delay(1500);
+ tempNormal(tempNormalLimit);
+ delay(1500);
+ tempCritic(tempCriticLimit);
+ delay(1500);
+ tempDanger(tempCriticLimit);
+ delay(1000);
 }
 
 void loop()
 {
- //ritardo di mezzo secondo
- delay(500);
+ //ritardo un secondo
+ delay(1000);
+ // Controllo se il pulsante per il reset è premuto
  if(digitalRead(reset) == HIGH){
-  Riavvia();
+   // Se è premuto riavvio Arduino
+   Riavvia();
  }
  //init variabile
  val_Adc = 0;
  //eseguo un ciclo
  for(byte Ciclo = 0; Ciclo<100; Ciclo++)
  {
-  //acquisisco il valore e lo sommo alla
-  //variabile
-  val_Adc += analogRead(0);
-  //questo ritardo serve per dare il tempo
-  //all' ADC di eseguire correttamente
-  //la prossima acquisizione
-  delay(10);
+   //acquisisco il valore e lo sommo alla variabile
+   val_Adc += analogRead(sensorTemp);
+   //questo ritardo serve per dare il tempo all' ADC di eseguire correttamente la prossima acquisizione
+   delay(10);
  }
 
  //eseguo la media dei 100 valori letti
@@ -102,63 +81,84 @@ void loop()
  temp = ((val_Adc * 0.0032) - 0.5) / 0.01;
  //invio i dati al computer
  Serial.println(temp);
-
-
  if (temp <= tempOkLimit){
-  lcd.clear();
-  lcd.setCursor(0,0);
-  lcd.print("Temperatura");
-  lcd.setCursor(6,1);
-  lcd.print("C OK");
-  digitalWrite(GREEN, HIGH);
-  digitalWrite(YELLOW, LOW);
-  digitalWrite(RED, LOW);
-  lcd.setCursor(0,1);
-  // Invio i dati all'lcd
-  lcd.print(temp);
+   tempOk(temp);
  } else {
-  if (temp <= tempCriticLimit){
-    lcd.clear();
-    lcd.setCursor(0,0);
-    lcd.print("Temperatura");
-    lcd.setCursor(6,1);
-    lcd.print("C NORM.");
-    digitalWrite(GREEN, LOW);
-    digitalWrite(YELLOW, HIGH);
-    digitalWrite(RED, LOW);
-    lcd.setCursor(0,1);
-    // Invio i dati all'lcd
-    lcd.print(temp);
+  if (temp <= tempNormalLimit){
+    tempNormal(temp);
   } else {
-    if (temp <= tempDanger){
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("Temperatura");
-      lcd.setCursor(6,1);
-      lcd.print("C CRITICO");
-      digitalWrite(GREEN, LOW);
-      digitalWrite(YELLOW, LOW);
-      digitalWrite(RED, HIGH);
-      lcd.setCursor(0,1);
-      // Invio i dati all'lcd
-      lcd.print(temp);
+    if (temp <= tempCriticLimit){
+      tempCritic(temp);
     }
     else {
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("Temperatura");
-      lcd.setCursor(6,1);
-      lcd.print("C PERICOLO");
-      digitalWrite(GREEN, HIGH);
-      digitalWrite(YELLOW, HIGH);
-      digitalWrite(RED, HIGH);
-      lcd.setCursor(0,1);
-      // Invio i dati all'lcd
-      lcd.print(temp);
-      tone(piezo,8200,450);
+      tempDanger(temp);
     }
   }
  }
 
- 
+}
+
+void tempOk(float temp){
+  // Pulisco l'LCD
+  lcd.clear();
+  // Imposto il cursore sull'angolo in altro a sinistra
+  lcd.setCursor(0,0);
+  // Stampo sull'LCD la parola 'Temperatura'
+  lcd.print("Temperatura");
+  lcd.setCursor(6,1);
+  lcd.print("C OK");
+  digitalWrite(GREEN, HIGH); // LED verde acceso
+  digitalWrite(YELLOW, LOW); // LED giallo spento
+  digitalWrite(RED, LOW); // LED rosso spento
+  lcd.setCursor(0,1);
+  // Invio i dati all'lcd
+  lcd.print(temp);
+}
+
+void tempNormal(float temp){
+  // Pulisco l'LCD
+  lcd.clear();
+  // Imposto il cursore sull'angolo in altro a sinistra
+  lcd.setCursor(0,0);
+  lcd.print("Temperatura");
+  lcd.setCursor(6,1);
+  lcd.print("C NORM.");
+  digitalWrite(GREEN, LOW); // LED verde spento
+  digitalWrite(YELLOW, HIGH); // LED giallo acceso
+  digitalWrite(RED, LOW); // LED rosso spento
+  lcd.setCursor(0,1);
+  // Invio i dati all'lcd
+  lcd.print(temp);
+}
+
+void tempCritic(float temp){
+  // Pulisco l'LCD
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Temperatura");
+  lcd.setCursor(6,1);
+  lcd.print("C CRITICO");
+  digitalWrite(GREEN, LOW); // LED verde spento
+  digitalWrite(YELLOW, LOW); // LED giallo spento
+  digitalWrite(RED, HIGH); // LED rosso acceso
+  lcd.setCursor(0,1);
+  // Invio i dati all'lcd
+  lcd.print(temp);
+}
+
+void tempDanger(float temp){
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Temperatura");
+  lcd.setCursor(6,1);
+  lcd.print("C PERICOLO");
+  digitalWrite(GREEN, HIGH); // LED verde acceso
+  digitalWrite(YELLOW, HIGH); // LED giallo acceso
+  digitalWrite(RED, HIGH); // LED rosso acceso
+  lcd.setCursor(0,1);
+  // Invio i dati all'lcd
+  lcd.print(temp);
+  tone(piezo,8200,450); // Emetto un suono col piezo
+  delay(500);
+  tone(piezo,8200,450);
 }
